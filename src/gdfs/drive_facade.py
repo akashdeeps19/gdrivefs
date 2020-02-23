@@ -1,0 +1,1 @@
+# Provides a simple high-level interface for interacting with the Google Drive API.
