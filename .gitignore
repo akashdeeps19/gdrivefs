@@ -1,3 +1,5 @@
 .vscode
 venv
 credentials/credentials.json
+copydir
+mountdir
