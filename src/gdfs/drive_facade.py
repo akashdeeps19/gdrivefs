@@ -140,6 +140,17 @@ class driveFacade:
                 return item
         return False
 
+    def create_folder(self,name,parent_id):
+        file_metadata = {
+            'name': name,
+            'parents': [parent_id],
+            'mimeType': 'application/vnd.google-apps.folder'
+        }
+        file = self.service.files().create(body=file_metadata,fields='id,name,mimeType').execute()
+        file['extension'] = self.get_extension(file.pop('mimeType'))
+        return file
+
+
 
 
 def main():
@@ -157,9 +168,10 @@ def main():
     #         print(u'{0} ({1})'.format(item['name'], item['id']))
 
     # df.get_file_content(items[3]['id'],'img.jpg',True)
-    items = df.get_all_files()
+    items = df.get_all_files('1OfrcYqyTHEzQ0jHVAIfYe5TCZHsbrIkH')
+    print(df.create_folder('man','14eyVbUtI29O0224U9NCD7SOQ2-xLpVYn'))
     print(items)
-    df.downloader('./root',items)
+    # df.downloader('./root',items)
     
             
 

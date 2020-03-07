@@ -17,6 +17,7 @@ class Passthrough(Operations):
         self.items = self.df.get_all_files()
         self.df.downloader('root/',self.items)
         self.history = {'/':self.items}
+        self.root_dir = {'id' : 'root', 'name' : '', 'extension' : 'folder'}
 
     # Helpers
     # =======
@@ -26,6 +27,12 @@ class Passthrough(Operations):
             partial = partial[1:]
         path = os.path.join(self.root, partial)
         return path
+
+    def find_parent(self,path):
+        parents = path.split('/')
+        if parents[-2] == '':
+            return self.root_dir
+        return self.df.get_item(self.history['/'+parents[-3]],parents[-2])
 
     # Filesystem methods
     # ==================
@@ -81,6 +88,9 @@ class Passthrough(Operations):
         return os.rmdir(full_path)
 
     def mkdir(self, path, mode):
+        parent = self.find_parent(path)
+        item = self.df.create_folder(os.path.basename(path),parent['id'])
+        self.history['/'+parent['name']].append(item)
         return os.mkdir(self._full_path(path), mode)
 
     def statfs(self, path):
