@@ -17,7 +17,7 @@ class Passthrough(Operations):
         self.items = self.df.get_all_files()
         self.df.downloader('root/',self.items)
         self.history = {'/':self.items}
-        self.root = {'id' : 'root', 'name' : '', 'extension' : 'folder'}
+        self.root_dir = {'id' : 'root', 'name' : '', 'extension' : 'folder'}
 
     # Helpers
     # =======
@@ -31,7 +31,7 @@ class Passthrough(Operations):
     def find_parent(self,path):
         parents = path.split('/')
         if parents[-2] == '':
-            return self.root
+            return self.root_dir
         return self.df.get_item(self.history['/'+parents[-3]],parents[-2])
 
     # Filesystem methods
