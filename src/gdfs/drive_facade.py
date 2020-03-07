@@ -39,6 +39,7 @@ class driveFacade:
             'application/vnd.google-apps.document': 'doc',
             'application/vnd.google-apps.folder': 'folder'
         }
+        self.changes_token = None
 
     def authenticate(self):
         creds = None
@@ -150,6 +151,33 @@ class driveFacade:
         file['extension'] = self.get_extension(file.pop('mimeType'))
         return file
 
+    def get_start_page_token(self):
+        response = self.service.changes().getStartPageToken().execute()
+        start_page_token = response.get('startPagetoken')
+        return start_page_token
+
+    def changes_token_func(self):
+        if self.changes_token == None:
+            self.changes_token = self.get_start_page_token()
+
+        return self.changes_token
+
+    def get_changes(self):
+        token = self.changes_token_func()
+        changes = []
+
+        while token is not None:
+            response = self.service.changes().list(pageToken=token,spaces='drive').execute()
+            for change in response.get('changes'):
+                # Process change
+                print ('Change found for file: ' , change.get('fileId'))
+                changes.append(change.get('fileId'))
+            if 'newStartPageToken' in response:
+                # Last page, save this token for the next polling interval
+                self.changes_token = response.get('newStartPageToken')
+            token = response.get('nextPageToken')
+
+        return changes
 
 
 
