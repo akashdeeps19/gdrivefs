@@ -31,12 +31,36 @@ class file_system(Operations):
         self.history = {'/':self.files}
         self.root_dir = {'id' : 'root', 'name' : '', 'extension' : 'folder'}
 
+        self.file_manager=file_manager()
+
     def _full_path(self,partial):
         if(partial.startswith("/")):
             partial=partial[1:]
         path=os.path.join(self.root,partial)
         return path
 
+
+    def sync(self):
+        # if (datetime.now() - self.last_sync) < self.sync_interval:
+        #     print("Not enough time has passed since last sync, will do nothing")
+        #     return
+        
+        print("Checking for changes...")
+        self.last_sync = datetime.now()
+
+        full_path = self._full_path(self.root)
+        item = self.df.get_item(self.files,os.path.basename(full_path))
+        print(self.df.get_changes())
+
+        for change in self.df.get_changes():
+            file_id = change.file_id
+            print(change)
+
+            if not self.history.__contains__(file_id):
+                print("New file found from drive, creating locally...")
+                self.items = self.df.get_all_files(parent=item['id'])
+                self.df.downloader(full_path, self.items)
+                self.history[self.root] = self.items   
     
     def find_parent(self,path):
         parents = path.split('/')
@@ -101,6 +125,7 @@ class file_system(Operations):
         return os.rmdir(full_path)
 
     def mkdir(self, path, mode):
+        self.sync()
         parent = self.find_parent(path)
         item = self.df.create_folder(os.path.basename(path),parent['id'])
         self.history['/'+parent['name']].append(item)

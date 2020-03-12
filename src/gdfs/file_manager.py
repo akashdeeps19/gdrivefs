@@ -14,25 +14,25 @@ from fuse import FUSE, FuseOSError, Operations
 class file_manager:
 
         
-    # def sync(self):
-    #     if (datetime.now() - self.last_sync) < self.sync_interval:
-    #         print("Not enough time has passed since last sync, will do nothing")
-    #         return
+    def sync(self):
+        if (datetime.now() - self.last_sync) < self.sync_interval:
+            print("Not enough time has passed since last sync, will do nothing")
+            return
         
-    #     print("Checking for changes...")
-    #     self.last_sync = datetime.now()
+        print("Checking for changes...")
+        self.last_sync = datetime.now()
 
-    #     full_path = self._full_path(self.root)
-    #     item = self.df.get_item(self.items,os.path.basename(self.root))
+        full_path = self._full_path(self.root)
+        item = self.df.get_item(self.items,os.path.basename(self.root))
 
-    #     for change in self.df.get_changes():
-    #         file_id = change.file_id
+        for change in self.df.get_changes():
+            file_id = change.file_id
 
-    #         if not self.history.__contains__(file_id):
-    #             print("New file found from drive, creating locally...")
-    #             self.items = self.df.get_all_files(parent=item['id'])
-    #             self.df.downloader(full_path, self.items)
-    #             self.history[self.root] = self.items   
+            if not self.history.__contains__(file_id):
+                print("New file found from drive, creating locally...")
+                self.items = self.df.get_all_files(parent=item['id'])
+                self.df.downloader(full_path, self.items)
+                self.history[self.root] = self.items   
 
     def createFolders():
         pass

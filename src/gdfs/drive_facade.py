@@ -146,9 +146,10 @@ class driveFacade:
                         print('success')
             else:
                 try:
-                    threading.Thread(target=(self.get_file_content),kwargs=dict(item=item,path=path,threadNumber=i,))
+                    self.get_file_content(item=item,path=path)
+                    #threading.Thread(target=(self.get_file_content),kwargs=dict(item=item,path=path,threadNumber=i,))
                 except:
-                    print("Error while downling using threads")
+                    print("Error while downloading")
                 if verbose:
                     print('success')
             i+=1
@@ -202,9 +203,9 @@ class driveFacade:
             token = response.get('nextPageToken')
 
         return changes
+    
 
-
-
+    
 def main():
 
     df = driveFacade()
