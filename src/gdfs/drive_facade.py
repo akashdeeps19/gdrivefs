@@ -8,8 +8,11 @@ import io
 import os
 from googleapiclient.http import MediaIoBaseDownload
 
+import threading 
+
 class driveFacade:
     def __init__(self):
+        self.time=0
         # If modifying these scopes, delete the file token.pickle.
         self.SCOPES = ['https://www.googleapis.com/auth/drive']
         self.service = None
@@ -52,6 +55,7 @@ class driveFacade:
         # If there are no (valid) credentials available, let the user log in.
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
+                print("Creds expired")
                 creds.refresh(Request())
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(
@@ -62,15 +66,18 @@ class driveFacade:
                 pickle.dump(creds, token)
 
         self.service = build('drive', 'v3', credentials=creds)
+        print("Authenticated")
 
     def get_files_metadata(self,no_files):
         results = self.service.files().list(
         pageSize=no_files, fields="nextPageToken, files(id, name)").execute()
         items = results.get('files', [])
+        print("Got metadata")
 
         return items
 
-    def get_file_content(self,file_id = None,item = None,filename = 'filename.zip',verbose = False,path = './'):
+    def get_file_content(self,file_id = None,item = None,filename = 'filename.zip',verbose = False,path = './',threadNumber=0):
+        print("Thread number ",threadNumber)
         if(item):
             file_id = item['id']
             filename = os.path.join(path,item['name'] + '.' + item['extension'])
@@ -84,6 +91,7 @@ class driveFacade:
             status, done = downloader.next_chunk()
             if verbose:
                 print("Download %d%%." % int(status.progress() * 100))
+        print("Getting file contentS")
         return done
 
 
@@ -95,9 +103,11 @@ class driveFacade:
         tempFolderId = self.service.files().create(body=file_metadata, fields='id').execute()["id"] # Create temporary folder
         myDriveId = self.service.files().get(fileId=tempFolderId, fields='parents').execute()["parents"][0] # Get parent ID
         self.service.files().delete(fileId=tempFolderId).execute() # Delete temporary folder
+        print("get root id")
         return myDriveId
 
     def get_extension(self,mimeType):
+        print("get extension")
         return self.extensions[mimeType]
         
 
@@ -119,29 +129,40 @@ class driveFacade:
             page_token = response.get('nextPageToken', None)
             if page_token is None:
                 break
+        print("get all files")
         return items
 
-    def downloader(self,path,items,verbose = False):
+    def downloader(self,path,items,verbose = True):
+        print("Downloading...")
+        i=0
         for item in items:
             full_path = os.path.join(path,item['name'])
             if os.path.lexists(full_path):
                 continue 
             if item['extension'] == 'folder':
+                    #just creating the directory if it is not a file
                     os.mkdir(full_path)
                     if verbose:
                         print('success')
             else:
-                self.get_file_content(item=item,path=path)
+                try:
+                    threading.Thread(target=(self.get_file_content),kwargs=dict(item=item,path=path,threadNumber=i,))
+                except:
+                    print("Error while downling using threads")
                 if verbose:
                     print('success')
+            i+=1
         
     def get_item(self,items,name):
+        print("getting item    ",self.time)
+        self.time+=1
         for item in items:
             if item['name'] == name:
                 return item
         return False
 
     def create_folder(self,name,parent_id):
+        print("create folder")
         file_metadata = {
             'name': name,
             'parents': [parent_id],
@@ -152,17 +173,20 @@ class driveFacade:
         return file
 
     def get_start_page_token(self):
+        print("get_start_page_token")
         response = self.service.changes().getStartPageToken().execute()
         start_page_token = response.get('startPagetoken')
         return start_page_token
 
     def changes_token_func(self):
+        print("changes_token_func")
         if self.changes_token == None:
             self.changes_token = self.get_start_page_token()
 
         return self.changes_token
 
     def get_changes(self):
+        print("get changes")
         token = self.changes_token_func()
         changes = []
 
@@ -184,23 +208,10 @@ class driveFacade:
 def main():
 
     df = driveFacade()
-
     df.authenticate()
-    # items = df.get_files_metadata(12)
-
-    # if not items:
-    #     print('No files found.')
-    # else:
-    #     print('Files:')
-    #     for item in items:
-    #         print(u'{0} ({1})'.format(item['name'], item['id']))
-
-    # df.get_file_content(items[3]['id'],'img.jpg',True)
-    items = df.get_all_files('1OfrcYqyTHEzQ0jHVAIfYe5TCZHsbrIkH')
-    print(df.create_folder('man','14eyVbUtI29O0224U9NCD7SOQ2-xLpVYn'))
+    items = df.get_all_files()
     print(items)
-    # df.downloader('./root',items)
-    
+ 
             
 
 if __name__ == '__main__':

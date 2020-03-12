@@ -3,3 +3,4 @@ venv
 credentials/credentials.json
 copydir
 mountdir
+./src/gdfs/__pycache__

@@ -3,9 +3,13 @@ from __future__ import with_statement
 import os
 import sys
 import config
+from drive_facade import driveFacade
+from threading import *
 import errno
 from datetime import datetime
 from fuse import FUSE, FuseOSError, Operations
+
+from file_manager import file_manager 
 
 
 # An empty FUSE file system. It can be used in a mounting test aimed to determine whether or
@@ -14,40 +18,47 @@ from fuse import FUSE, FuseOSError, Operations
 
 class file_system(Operations):
 
-     def __init__(self, root):
+    def __init__(self, root):
+        self.time=0
         self.root = root
         self.last_sync = datetime.now()
         self.sync_interval = config.SYNC_INTERVAL
         self.df = driveFacade()
         self.df.authenticate()
-        self.items = self.df.get_all_files()
-        self.df.downloader('root/',self.items)
-        self.history = {'/':self.items}
+
+        self.files = self.df.get_all_files()
+        self.df.downloader('root/',self.files)
+        self.history = {'/':self.files}
         self.root_dir = {'id' : 'root', 'name' : '', 'extension' : 'folder'}
 
-
-    # Helpers
-    # =======
-
-    def _full_path(self, partial):
-        if partial.startswith("/"):
-            partial = partial[1:]
-        path = os.path.join(self.root, partial)
+    def _full_path(self,partial):
+        if(partial.startswith("/")):
+            partial=partial[1:]
+        path=os.path.join(self.root,partial)
         return path
+
+    
+    def find_parent(self,path):
+        parents = path.split('/')
+        if parents[-2] == '':
+            return self.root_dir
+        return self.df.get_item(self.history['/'+parents[-3]],parents[-2])
 
 
     # Filesystem methods
     # ==================
 
     def access(self, path, mode):
+        print("access called ",self.time)
+        self.time+=1
         full_path = self._full_path(path)
-        item = self.df.get_item(self.items,os.path.basename(path))
+        item = self.df.get_item(self.files,os.path.basename(path))
         if item and item['extension'] == 'folder' and not path in self.history:
-            self.items = self.df.get_all_files(parent=item['id'])
-            self.df.downloader(full_path,self.items)
-            self.history[path] = self.items
+            self.files = self.df.get_all_files(parent=item['id'])
+            self.df.downloader(full_path,self.files)
+            self.history[path] = self.files
         elif path in self.history:
-            self.items = self.history[path]
+            self.files = self.history[path]
         if not os.access(full_path, mode):
             raise FuseOSError(errno.EACCES)
 
@@ -152,7 +163,7 @@ class file_system(Operations):
 
 
 def main(mountpoint):
-    FUSE(Passthrough('root'), mountpoint, nothreads=True, foreground=True)
+    FUSE(file_system('root'), mountpoint, nothreads=True, foreground=True)
 
 if __name__ == '__main__':
     main(sys.argv[1])
