@@ -43,7 +43,8 @@ class Passthrough(Operations):
         if item and item['extension'] == 'folder' and not path in self.history:
             self.items = self.df.get_all_files(parent=item['id'])
             self.df.downloader(full_path,self.items)
-            self.history[path] = self.items
+            if len(self.items):
+                self.history[path] = self.items
         elif path in self.history:
             self.items = self.history[path]
         if not os.access(full_path, mode):
@@ -150,6 +151,8 @@ class Passthrough(Operations):
 
 
 def main(mountpoint):
+    if not os.path.exists('./root'):
+        os.mkdir('./root')
     FUSE(Passthrough('root'), mountpoint, nothreads=True, foreground=True)
 
 if __name__ == '__main__':

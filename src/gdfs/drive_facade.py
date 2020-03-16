@@ -7,12 +7,15 @@ from google.auth.transport.requests import Request
 import io
 import os
 from googleapiclient.http import MediaIoBaseDownload
+import threading
+import time
 
 class driveFacade:
     def __init__(self):
         # If modifying these scopes, delete the file token.pickle.
         self.SCOPES = ['https://www.googleapis.com/auth/drive']
         self.service = None
+        self.creds = None
         self.extensions = {
             'application/vnd.ms-excel': 'xls',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx', 
@@ -41,26 +44,26 @@ class driveFacade:
         }
 
     def authenticate(self):
-        creds = None
+        # creds = None
         # The file token.pickle stores the user's access and refresh tokens, and is
         # created automatically when the authorization flow completes for the first
         # time.
         if os.path.exists('token.pickle'):
             with open('token.pickle', 'rb') as token:
-                creds = pickle.load(token)
+                self.creds = pickle.load(token)
         # If there are no (valid) credentials available, let the user log in.
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
+        if not self.creds or not self.creds.valid:
+            if self.creds and self.creds.expired and self.creds.refresh_token:
+                self.creds.refresh(Request())
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(
                     'credentials.json', self.SCOPES)
-                creds = flow.run_local_server(port=0)
+                self.creds = flow.run_local_server(port=0)
             # Save the credentials for the next run
             with open('token.pickle', 'wb') as token:
-                pickle.dump(creds, token)
+                pickle.dump(self.creds, token)
 
-        self.service = build('drive', 'v3', credentials=creds)
+        self.service = build('drive', 'v3', credentials=self.creds)
 
     def get_files_metadata(self,no_files):
         results = self.service.files().list(
@@ -69,11 +72,13 @@ class driveFacade:
 
         return items
 
-    def get_file_content(self,file_id = None,item = None,filename = 'filename.zip',verbose = False,path = './'):
+    def get_file_content(self,file_id = None,item = None,filename = 'filename.zip',verbose = False,path = './',service = None):
         if(item):
             file_id = item['id']
             filename = os.path.join(path,item['name'] + '.' + item['extension'])
-        request = self.service.files().get_media(fileId=file_id)
+        request = service.files().get_media(fileId=file_id)
+        if verbose:
+            print(f"Downloading at {filename}")
         fh = io.FileIO(filename, mode='w')
         if item['extension'] == 'doc':
             return
@@ -121,6 +126,7 @@ class driveFacade:
         return items
 
     def downloader(self,path,items,verbose = False):
+        threads = []
         for item in items:
             full_path = os.path.join(path,item['name'])
             if os.path.lexists(full_path):
@@ -130,9 +136,15 @@ class driveFacade:
                     if verbose:
                         print('success')
             else:
-                self.get_file_content(item=item,path=path)
-                if verbose:
-                    print('success')
+                service = build('drive', 'v3', credentials=self.creds)
+                threads.append(threading.Thread(target=self.get_file_content,kwargs={'item':item,'path':path,'service':service}))
+                threads[-1].start()
+                # self.get_file_content(item=item,path=path,service=self.service)
+        for thread in threads:
+            thread.join()
+
+        if verbose:
+            print('success123')
         
     def get_item(self,items,name):
         for item in items:
@@ -169,7 +181,11 @@ def main():
 
     # df.get_file_content(items[3]['id'],'img.jpg',True)
     items = df.get_all_files('1OfrcYqyTHEzQ0jHVAIfYe5TCZHsbrIkH')
-    print(df.create_folder('man','14eyVbUtI29O0224U9NCD7SOQ2-xLpVYn'))
+    # print(df.create_folder('man','14eyVbUtI29O0224U9NCD7SOQ2-xLpVYn'))
+    start = time.time()
+    df.downloader(path = './root',items = items,verbose = True)
+    end = time.time()
+    print(end-start)
     print(items)
     # df.downloader('./root',items)
     
