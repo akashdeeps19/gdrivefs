@@ -3,6 +3,7 @@
 from __future__ import with_statement
 
 import os
+import threading
 import sys
 import errno
 from drive_facade import driveFacade
@@ -18,6 +19,9 @@ class Passthrough(Operations):
         self.df.downloader('root/',self.items)
         self.history = {'/':self.items}
         self.root_dir = {'id' : 'root', 'name' : '', 'extension' : 'folder'}
+        self.threads = []
+        self.f_threads = []
+        # self.dir_list = {'/' : self.root_dir}
 
     # Helpers
     # =======
@@ -34,18 +38,42 @@ class Passthrough(Operations):
             return self.root_dir
         return self.df.get_item(self.history['/'+parents[-3]],parents[-2])
 
+    def find_parent_path(self,path):
+        parent = path[:-len(os.path.basename(path))-1]
+        if parent == '':
+            return '/'
+        return parent
+
+    def thread_it(self,path,full_path,item):
+        items = self.df.get_all_files(parent=item['id'])
+        self.df.create_meta_files(items,full_path)
+        self.threads.append(threading.Thread(target = self.df.downloader,args = (full_path,items)))
+        self.threads[-1].start()
+        self.history[path] = items
+
     # Filesystem methods
     # ==================
 
     def access(self, path, mode):
+        # print('access_start',path)
         full_path = self._full_path(path)
-        item = self.df.get_item(self.items,os.path.basename(path))
+        parent = self.find_parent_path(path)
+        # item = self.df.get_item(self.items,os.path.basename(path))
+        item = self.df.get_item(self.history[parent],os.path.basename(path))
+        # print(item)
         if item and item['extension'] == 'folder' and not path in self.history:
-            self.items = self.df.get_all_files(parent=item['id'])
-            self.df.downloader(full_path,self.items)
-            if len(self.items):
-                self.history[path] = self.items
+            # print(item)
+            # self.items = self.df.get_all_files(parent=item['id'])
+            # self.df.create_meta_files(self.items,full_path)
+            # self.threads.append(threading.Thread(target = self.df.downloader,args = (full_path,self.items)))
+            # self.threads[-1].start()
+            # # if len(self.items):
+            # self.history[path] = self.items
+            self.f_threads.append(threading.Thread(target=self.thread_it,args=(path,full_path,item)))
+            self.f_threads[-1].start()
+
         elif path in self.history:
+            # print(path)
             self.items = self.history[path]
         if not os.access(full_path, mode):
             raise FuseOSError(errno.EACCES)
@@ -59,14 +87,16 @@ class Passthrough(Operations):
         return os.chown(full_path, uid, gid)
 
     def getattr(self, path, fh=None):
+        # print('get_attr',path)
         full_path = self._full_path(path)
+        
         st = os.lstat(full_path)
         return dict((key, getattr(st, key)) for key in ('st_atime', 'st_ctime',
                      'st_gid', 'st_mode', 'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
+        
 
     def readdir(self, path, fh):
         full_path = self._full_path(path)
-
         dirents = ['.', '..']
         if os.path.isdir(full_path):
             dirents.extend(os.listdir(full_path))
@@ -153,7 +183,7 @@ class Passthrough(Operations):
 def main(mountpoint):
     if not os.path.exists('./root'):
         os.mkdir('./root')
-    FUSE(Passthrough('root'), mountpoint, nothreads=True, foreground=True)
+    FUSE(Passthrough('root'), mountpoint,foreground=True)
 
 if __name__ == '__main__':
     main(sys.argv[1])

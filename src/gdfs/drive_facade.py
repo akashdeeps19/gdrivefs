@@ -75,7 +75,7 @@ class driveFacade:
     def get_file_content(self,file_id = None,item = None,filename = 'filename.zip',verbose = False,path = './',service = None):
         if(item):
             file_id = item['id']
-            filename = os.path.join(path,item['name'] + '.' + item['extension'])
+            filename = os.path.join(path,item['name'])# + '.' + item['extension'])
         request = service.files().get_media(fileId=file_id)
         if verbose:
             print(f"Downloading at {filename}")
@@ -90,6 +90,15 @@ class driveFacade:
                 print("Download %d%%." % int(status.progress() * 100))
         return done
 
+    def create_meta_files(self,items,path):
+        
+        for item in items:
+            full_path = os.path.join(path,item['name'])
+            if item['extension'] != 'folder':
+                fh = io.FileIO(full_path,mode = 'w')
+                fh.close()
+            elif item['extension'] == 'folder' and not os.path.lexists(full_path):
+                os.mkdir(full_path)
 
     def get_root_id(self):
         file_metadata = {
@@ -106,12 +115,13 @@ class driveFacade:
         
 
     def get_all_files(self,parent = 'root'):
+        service = build('drive', 'v3', credentials=self.creds)
         page_token = None
         items = []
         q = f"'{parent}' in parents"
         while True:
             # try:
-            response = self.service.files().list(q=q,
+            response = service.files().list(q=q,
                                                     spaces='drive',
                                                     fields='nextPageToken, files(id, name, mimeType)',
                                                     pageToken=page_token).execute()
@@ -123,19 +133,20 @@ class driveFacade:
             page_token = response.get('nextPageToken', None)
             if page_token is None:
                 break
+        # print(f"Total items : {len(items)}")
         return items
 
     def downloader(self,path,items,verbose = False):
         threads = []
         for item in items:
             full_path = os.path.join(path,item['name'])
-            if os.path.lexists(full_path):
-                continue 
-            if item['extension'] == 'folder':
+            # if os.path.lexists(full_path):
+            #     continue 
+            if item['extension'] == 'folder' and not os.path.lexists(full_path):
                     os.mkdir(full_path)
                     if verbose:
                         print('success')
-            else:
+            elif item['extension'] != 'folder':
                 service = build('drive', 'v3', credentials=self.creds)
                 threads.append(threading.Thread(target=self.get_file_content,kwargs={'item':item,'path':path,'service':service}))
                 threads[-1].start()
