@@ -7,21 +7,14 @@ import threading
 import sys
 import errno
 from drive_facade import driveFacade
+from file_methods import fileMethods
 from fuse import FUSE, FuseOSError, Operations
 
 
 class Passthrough(Operations):
     def __init__(self, root):
         self.root = root
-        self.df = driveFacade()
-        self.df.authenticate()
-        self.items = self.df.get_all_files()
-        self.df.downloader('root/',self.items)
-        self.history = {'/':self.items}
-        self.root_dir = {'id' : 'root', 'name' : '', 'extension' : 'folder'}
-        self.threads = []
-        self.f_threads = []
-        # self.dir_list = {'/' : self.root_dir}
+        self.fm = fileMethods()
 
     # Helpers
     # =======
@@ -32,49 +25,19 @@ class Passthrough(Operations):
         path = os.path.join(self.root, partial)
         return path
 
-    def find_parent(self,path):
-        parents = path.split('/')
-        if parents[-2] == '':
-            return self.root_dir
-        return self.df.get_item(self.history['/'+parents[-3]],parents[-2])
-
-    def find_parent_path(self,path):
+    def _parent_path(self,path):
         parent = path[:-len(os.path.basename(path))-1]
         if parent == '':
             return '/'
         return parent
 
-    def thread_it(self,path,full_path,item):
-        items = self.df.get_all_files(parent=item['id'])
-        self.df.create_meta_files(items,full_path)
-        self.threads.append(threading.Thread(target = self.df.downloader,args = (full_path,items)))
-        self.threads[-1].start()
-        self.history[path] = items
-
     # Filesystem methods
     # ==================
 
     def access(self, path, mode):
-        # print('access_start',path)
         full_path = self._full_path(path)
-        parent = self.find_parent_path(path)
-        # item = self.df.get_item(self.items,os.path.basename(path))
-        item = self.df.get_item(self.history[parent],os.path.basename(path))
-        # print(item)
-        if item and item['extension'] == 'folder' and not path in self.history:
-            # print(item)
-            # self.items = self.df.get_all_files(parent=item['id'])
-            # self.df.create_meta_files(self.items,full_path)
-            # self.threads.append(threading.Thread(target = self.df.downloader,args = (full_path,self.items)))
-            # self.threads[-1].start()
-            # # if len(self.items):
-            # self.history[path] = self.items
-            self.f_threads.append(threading.Thread(target=self.thread_it,args=(path,full_path,item)))
-            self.f_threads[-1].start()
-
-        elif path in self.history:
-            # print(path)
-            self.items = self.history[path]
+        parent_path = self._parent_path(path)
+        self.fm.access_threaded(path,full_path,parent_path)
         if not os.access(full_path, mode):
             raise FuseOSError(errno.EACCES)
 
@@ -119,9 +82,8 @@ class Passthrough(Operations):
         return os.rmdir(full_path)
 
     def mkdir(self, path, mode):
-        parent = self.find_parent(path)
-        item = self.df.create_folder(os.path.basename(path),parent['id'])
-        self.history['/'+parent['name']].append(item)
+        parent_path = self._parent_path(path)
+        self.fm.mkdir_threaded(path,parent_path)
         return os.mkdir(self._full_path(path), mode)
 
     def statfs(self, path):

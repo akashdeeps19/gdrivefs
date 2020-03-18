@@ -40,6 +40,7 @@ class driveFacade:
             'text/html': 'htm', 
             'application/octet-stream': 'default', 
             'application/vnd.google-apps.document': 'doc',
+            'application/vnd.google-apps.spreadsheet': 'doc',
             'application/vnd.google-apps.folder': 'folder'
         }
 
@@ -111,7 +112,9 @@ class driveFacade:
         return myDriveId
 
     def get_extension(self,mimeType):
-        return self.extensions[mimeType]
+        if mimeType in self.extensions:
+            return self.extensions[mimeType]
+        return ''
         
 
     def get_all_files(self,parent = 'root'):
@@ -128,7 +131,8 @@ class driveFacade:
             # except:
             #     return []
             for file in response.get('files', []):
-                file['extension'] = self.get_extension(file.pop('mimeType'))
+                mimeType = file.pop('mimeType')
+                file['extension'] = self.get_extension(mimeType)
                 items.append(file)
             page_token = response.get('nextPageToken', None)
             if page_token is None:
@@ -157,19 +161,16 @@ class driveFacade:
         if verbose:
             print('success123')
         
-    def get_item(self,items,name):
-        for item in items:
-            if item['name'] == name:
-                return item
-        return False
+    
 
     def create_folder(self,name,parent_id):
+        service = build('drive', 'v3', credentials=self.creds)
         file_metadata = {
             'name': name,
             'parents': [parent_id],
             'mimeType': 'application/vnd.google-apps.folder'
         }
-        file = self.service.files().create(body=file_metadata,fields='id,name,mimeType').execute()
+        file = service.files().create(body=file_metadata,fields='id,name,mimeType').execute()
         file['extension'] = self.get_extension(file.pop('mimeType'))
         return file
 
