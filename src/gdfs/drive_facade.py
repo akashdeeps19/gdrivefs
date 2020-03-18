@@ -6,7 +6,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 import io
 import os
-from googleapiclient.http import MediaIoBaseDownload
+from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 import threading
 import time
 
@@ -91,8 +91,7 @@ class driveFacade:
                 print("Download %d%%." % int(status.progress() * 100))
         return done
 
-    def create_meta_files(self,items,path):
-        
+    def create_meta_files(self,items,path): 
         for item in items:
             full_path = os.path.join(path,item['name'])
             if item['extension'] != 'folder':
@@ -174,6 +173,33 @@ class driveFacade:
         file['extension'] = self.get_extension(file.pop('mimeType'))
         return file
 
+    def create_file(self,name,parent_id,source):
+        service = build('drive', 'v3', credentials=self.creds)
+        file_metadata = {'name': name,'parents': [parent_id]}
+        media = MediaFileUpload(source)
+        file = service.files().create(body=file_metadata,
+                                            media_body=media,
+                                            fields='id').execute()
+        id = file.get('id')
+        print(f"File ID: {id}")
+        return id
+
+    def update_file(self,item,metadata = None,source = None):
+        pass
+
+    def delete_file(self,file_id):
+        service = build('drive', 'v3', credentials=self.creds)
+        service.files().delete(fileId = file_id).execute()
+        print('deleted')
+
+    def trash_file(self,file_id):
+        service = build('drive', 'v3', credentials=self.creds)
+        body = {'trashed': True}
+        updated_file = service.files().update(fileId=file_id, body=body).execute()
+        print('trashed')
+        return updated_file
+        
+
 
 
 
@@ -192,14 +218,18 @@ def main():
     #         print(u'{0} ({1})'.format(item['name'], item['id']))
 
     # df.get_file_content(items[3]['id'],'img.jpg',True)
-    items = df.get_all_files('1OfrcYqyTHEzQ0jHVAIfYe5TCZHsbrIkH')
-    # print(df.create_folder('man','14eyVbUtI29O0224U9NCD7SOQ2-xLpVYn'))
-    start = time.time()
-    df.downloader(path = './root',items = items,verbose = True)
-    end = time.time()
-    print(end-start)
-    print(items)
+    # items = df.get_all_files('1OfrcYqyTHEzQ0jHVAIfYe5TCZHsbrIkH')
+    # # print(df.create_folder('man','14eyVbUtI29O0224U9NCD7SOQ2-xLpVYn'))
+    # start = time.time()
+    # df.downloader(path = './root',items = items,verbose = True)
+    # end = time.time()
+    # print(end-start)
+    # print(items)
     # df.downloader('./root',items)
+    # id = df.create_file('root','a')
+    # items = df.get_all_files('root')
+    # print(items)
+    df.delete_file('1sA37GZE_NeyJkv7_8GMfZcFPPfwm2YbP')
     
             
 
