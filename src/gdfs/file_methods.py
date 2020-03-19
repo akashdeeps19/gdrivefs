@@ -24,7 +24,16 @@ class fileMethods:
         if parents[-2] == '':
             return self.root_dir
         parent_path = '/'.join(parents[:-2])
+        if parent_path == '':
+            parent_path = '/'
         return self.get_item(self.history[parent_path],parents[-2])
+
+    def check_hidden(self,path):
+        parents = path.split('/')
+        for parent in parents:
+            if len(parent) and parent[0] == '.':
+                return True
+        return False
 
     def access_helper(self,path,full_path,item):
         items = self.df.get_all_files(parent=item['id'])
@@ -44,10 +53,35 @@ class fileMethods:
             self.items = self.history[path]
 
     def mkdir_helper(self,path,parent_path):
+        if self.check_hidden(path):
+            return
         parent = self.find_parent(path)
         item = self.df.create_folder(os.path.basename(path),parent['id'])
         self.history[parent_path].append(item)
 
     def mkdir_threaded(self,path,parent_path):
         thread = threading.Thread(target=self.mkdir_helper,args=(path,parent_path))
+        thread.start()
+
+    def create_helper(self,path,full_path,parent_path):
+        if self.check_hidden(path):
+            return
+        parent = self.find_parent(path)
+        item = self.df.create_file(os.path.basename(path),parent['id'],full_path)
+        self.history[parent_path].append(item)
+
+    def create_threaded(self,path,full_path,parent_path):
+        thread = threading.Thread(target=self.create_helper,args=(path,full_path,parent_path))
+        thread.start()
+
+    def delete_helper(self,path,parent_path,mode = 'trash'):
+        item = self.get_item(self.history[parent_path],os.path.basename(path))
+        if mode == 'trash':
+            self.df.trash_file(item['id'])
+        elif mode == 'delete':
+            self.df.delete_file(item['id'])
+        self.history[parent_path].remove(item)
+
+    def delete_threaded(self,path,parent_path,mode = 'trash'):
+        thread = threading.Thread(target=self.delete_helper,args=(path,parent_path),kwargs={'mode' : mode})
         thread.start()

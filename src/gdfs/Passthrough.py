@@ -78,7 +78,10 @@ class Passthrough(Operations):
         return os.mknod(self._full_path(path), mode, dev)
 
     def rmdir(self, path):
+        print('rmdir :',path)
         full_path = self._full_path(path)
+        parent_path = self._parent_path(path)
+        self.fm.delete_threaded(path,parent_path)
         return os.rmdir(full_path)
 
     def mkdir(self, path, mode):
@@ -94,6 +97,9 @@ class Passthrough(Operations):
             'f_frsize', 'f_namemax'))
 
     def unlink(self, path):
+        print('unlink :',path)
+        parent_path = self._parent_path(path)
+        self.fm.delete_threaded(path,parent_path)
         return os.unlink(self._full_path(path))
 
     def symlink(self, name, target):
@@ -112,11 +118,15 @@ class Passthrough(Operations):
     # ============
 
     def open(self, path, flags):
+        print('open :',path)
         full_path = self._full_path(path)
         return os.open(full_path, flags)
 
     def create(self, path, mode, fi=None):
+        print('create :',path)
         full_path = self._full_path(path)
+        parent_path = self._parent_path(path)
+        self.fm.create_threaded(path,full_path,parent_path)
         return os.open(full_path, os.O_WRONLY | os.O_CREAT, mode)
 
     def read(self, path, length, offset, fh):
@@ -124,6 +134,7 @@ class Passthrough(Operations):
         return os.read(fh, length)
 
     def write(self, path, buf, offset, fh):
+        print('write :',path)
         os.lseek(fh, offset, os.SEEK_SET)
         return os.write(fh, buf)
 
@@ -133,12 +144,15 @@ class Passthrough(Operations):
             f.truncate(length)
 
     def flush(self, path, fh):
+        print('flush :',path)
         return os.fsync(fh)
 
     def release(self, path, fh):
+        print('release :',path)
         return os.close(fh)
 
     def fsync(self, path, fdatasync, fh):
+        print('fsync :',path,fdatasync)
         return self.flush(path, fh)
 
 

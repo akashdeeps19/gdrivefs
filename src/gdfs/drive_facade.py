@@ -178,14 +178,24 @@ class driveFacade:
         file_metadata = {'name': name,'parents': [parent_id]}
         media = MediaFileUpload(source)
         file = service.files().create(body=file_metadata,
-                                            media_body=media,
-                                            fields='id').execute()
-        id = file.get('id')
-        print(f"File ID: {id}")
-        return id
+                                    media_body=media,
+                                    fields='id,name,mimeType').execute()
+        file['extension'] = self.get_extension(file.pop('mimeType'))
+        return file
 
-    def update_file(self,item,metadata = None,source = None):
-        pass
+    def update_file(self,file_id,metadata = None,source = None):
+        service = build('drive', 'v3', credentials=self.creds)
+        if metadata:
+            file_metadata = metadata
+        else:
+            file_metadata = service.files().get(fileId=file_id).execute()
+        if source:
+            media = MediaFileUpload(source)
+            file = service.files().update(fileId = file_id,body=file_metadata,
+                                        media_body=media).execute()
+        else:
+            file = service.files().update(fileId = file_id,body=file_metadata).execute()
+        return file
 
     def delete_file(self,file_id):
         service = build('drive', 'v3', credentials=self.creds)
@@ -227,9 +237,11 @@ def main():
     # print(items)
     # df.downloader('./root',items)
     # id = df.create_file('root','a')
-    # items = df.get_all_files('root')
+    # items = df.get_all_files('1N2Kyt8vIIlOiW8oZmAFAaX261SZ8kWKV')
     # print(items)
-    df.delete_file('1sA37GZE_NeyJkv7_8GMfZcFPPfwm2YbP')
+    # file = df.update_file('1ssIQSQSJq4dEMC_wgf67KvMJc1BVLL78',metadata={'name' : 'text.txt','mimetype':'text/plain'},source='root/testinoacm/ghsdlgjd.txt')
+    # print(file)
+    # df.delete_file('1sA37GZE_NeyJkv7_8GMfZcFPPfwm2YbP')
     
             
 
