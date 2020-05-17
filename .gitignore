@@ -1,10 +1,6 @@
 .vscode
-venv
-credentials/credentials.json
-copydir
-mountdir
-src/gdfs/token.pickle
-src/gdfs/root
-src/gdfs/credentials.json
-src/gdfs/__pycache__
+credentials.json
+token.pickle
+root
+__pycache__
 

@@ -1,4 +1,5 @@
 import os
+import io
 import threading
 from drive_facade import driveFacade
 
@@ -7,10 +8,11 @@ class fileMethods:
         self.df = driveFacade()
         self.df.authenticate()
         self.items = self.df.get_all_files()
-        self.df.create_meta_files(self.items,'root/')
-        d_thread = threading.Thread(target = self.df.downloader,args=('root/',self.items))
+        self.create_meta_files(self.items,'src/root/')
+        d_thread = threading.Thread(target = self.df.downloader,args=('src/root/',self.items))
         d_thread.start()
         self.history = {'/':self.items}
+        self.threads = {}
         self.root_dir = {'id' : 'root', 'name' : '', 'extension' : 'folder'}
     
     def get_item(self,items,name):
@@ -35,20 +37,37 @@ class fileMethods:
                 return True
         return False
 
+    def create_meta_files(self,items,path): 
+        for item in items:
+            full_path = os.path.join(path,item['name'])
+            if item['extension'] != 'folder':
+                fh = io.FileIO(full_path,mode = 'w')
+                fh.close()
+            elif item['extension'] == 'folder' and not os.path.lexists(full_path):
+                os.mkdir(full_path)
+
+    def get_diff(self,path,full_path):
+        hist_list = [item['name'] for item in self.history[path]]
+        hist_set = set(hist_list)
+        root_set = set(os.listdir(full_path))
+        return root_set - hist_set , hist_set - root_set #(create , delete)
+
     def access_helper(self,path,full_path,item):
         items = self.df.get_all_files(parent=item['id'])
-        self.df.create_meta_files(items,full_path)
+        self.create_meta_files(items,full_path)
         d_thread = threading.Thread(target = self.df.downloader,args = (full_path,items))
         d_thread.start()
         self.history[path] = items
 
     def access_threaded(self,path,full_path,parent_path):
+        if self.check_hidden(path):
+            return
+
         item = self.get_item(self.history[parent_path],os.path.basename(path))
         if item and item['extension'] == 'folder' and not path in self.history:
             self.history[path] = []
             f_thread = threading.Thread(target=self.access_helper,args=(path,full_path,item))
             f_thread.start()
-
         elif path in self.history:
             self.items = self.history[path]
 
@@ -75,6 +94,8 @@ class fileMethods:
         thread.start()
 
     def delete_helper(self,path,parent_path,mode = 'trash'):
+        if self.check_hidden(path):
+            return
         item = self.get_item(self.history[parent_path],os.path.basename(path))
         if mode == 'trash':
             self.df.trash_file(item['id'])

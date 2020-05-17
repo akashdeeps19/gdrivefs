@@ -1,5 +1,3 @@
-# !/usr/bin/env python
-
 from __future__ import with_statement
 
 import os
@@ -37,6 +35,7 @@ class Passthrough(Operations):
     def access(self, path, mode):
         full_path = self._full_path(path)
         parent_path = self._parent_path(path)
+        print("access : ", path)
         self.fm.access_threaded(path,full_path,parent_path)
         if not os.access(full_path, mode):
             raise FuseOSError(errno.EACCES)
@@ -50,7 +49,6 @@ class Passthrough(Operations):
         return os.chown(full_path, uid, gid)
 
     def getattr(self, path, fh=None):
-        # print('get_attr',path)
         full_path = self._full_path(path)
         
         st = os.lstat(full_path)
@@ -61,6 +59,7 @@ class Passthrough(Operations):
     def readdir(self, path, fh):
         full_path = self._full_path(path)
         dirents = ['.', '..']
+        print("ls :", path)
         if os.path.isdir(full_path):
             dirents.extend(os.listdir(full_path))
         for r in dirents:
@@ -85,6 +84,7 @@ class Passthrough(Operations):
         return os.rmdir(full_path)
 
     def mkdir(self, path, mode):
+        print('mkdir :',path)
         parent_path = self._parent_path(path)
         self.fm.mkdir_threaded(path,parent_path)
         return os.mkdir(self._full_path(path), mode)
@@ -118,7 +118,7 @@ class Passthrough(Operations):
     # ============
 
     def open(self, path, flags):
-        print('open :',path)
+        # print('open :',path)
         full_path = self._full_path(path)
         return os.open(full_path, flags)
 
@@ -144,22 +144,22 @@ class Passthrough(Operations):
             f.truncate(length)
 
     def flush(self, path, fh):
-        print('flush :',path)
+        # print('flush :',path)
         return os.fsync(fh)
 
     def release(self, path, fh):
-        print('release :',path)
+        # print('release :',path)
         return os.close(fh)
 
     def fsync(self, path, fdatasync, fh):
-        print('fsync :',path,fdatasync)
+        # print('fsync :',path,fdatasync)
         return self.flush(path, fh)
 
 
 def main(mountpoint):
-    if not os.path.exists('./root'):
-        os.mkdir('./root')
-    FUSE(Passthrough('root'), mountpoint,foreground=True)
+    if not os.path.exists('src/root'):
+        os.mkdir('src/root')
+    FUSE(Passthrough('src/root'), mountpoint, nothreads=True, foreground=True)
 
 if __name__ == '__main__':
     main(sys.argv[1])

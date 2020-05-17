@@ -49,8 +49,8 @@ class driveFacade:
         # The file token.pickle stores the user's access and refresh tokens, and is
         # created automatically when the authorization flow completes for the first
         # time.
-        if os.path.exists('token.pickle'):
-            with open('token.pickle', 'rb') as token:
+        if os.path.exists('src/token.pickle'):
+            with open('src/token.pickle', 'rb') as token:
                 self.creds = pickle.load(token)
         # If there are no (valid) credentials available, let the user log in.
         if not self.creds or not self.creds.valid:
@@ -58,10 +58,10 @@ class driveFacade:
                 self.creds.refresh(Request())
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(
-                    'credentials.json', self.SCOPES)
+                    'src/credentials.json', self.SCOPES)
                 self.creds = flow.run_local_server(port=0)
             # Save the credentials for the next run
-            with open('token.pickle', 'wb') as token:
+            with open('src/token.pickle', 'wb') as token:
                 pickle.dump(self.creds, token)
 
         self.service = build('drive', 'v3', credentials=self.creds)
@@ -91,15 +91,7 @@ class driveFacade:
                 print("Download %d%%." % int(status.progress() * 100))
         return done
 
-    def create_meta_files(self,items,path): 
-        for item in items:
-            full_path = os.path.join(path,item['name'])
-            if item['extension'] != 'folder':
-                fh = io.FileIO(full_path,mode = 'w')
-                fh.close()
-            elif item['extension'] == 'folder' and not os.path.lexists(full_path):
-                os.mkdir(full_path)
-
+    
     def get_root_id(self):
         file_metadata = {
             'name': 'temporary folder',
@@ -122,13 +114,10 @@ class driveFacade:
         items = []
         q = f"'{parent}' in parents"
         while True:
-            # try:
             response = service.files().list(q=q,
-                                                    spaces='drive',
-                                                    fields='nextPageToken, files(id, name, mimeType)',
-                                                    pageToken=page_token).execute()
-            # except:
-            #     return []
+                                            spaces='drive',
+                                            fields='nextPageToken, files(id, name, mimeType)',
+                                            pageToken=page_token).execute()
             for file in response.get('files', []):
                 mimeType = file.pop('mimeType')
                 file['extension'] = self.get_extension(mimeType)
@@ -136,15 +125,12 @@ class driveFacade:
             page_token = response.get('nextPageToken', None)
             if page_token is None:
                 break
-        # print(f"Total items : {len(items)}")
         return items
 
     def downloader(self,path,items,verbose = False):
         threads = []
         for item in items:
             full_path = os.path.join(path,item['name'])
-            # if os.path.lexists(full_path):
-            #     continue 
             if item['extension'] == 'folder' and not os.path.lexists(full_path):
                     os.mkdir(full_path)
                     if verbose:
@@ -156,9 +142,6 @@ class driveFacade:
                 # self.get_file_content(item=item,path=path,service=self.service)
         for thread in threads:
             thread.join()
-
-        if verbose:
-            print('success123')
         
     
 
@@ -171,6 +154,7 @@ class driveFacade:
         }
         file = service.files().create(body=file_metadata,fields='id,name,mimeType').execute()
         file['extension'] = self.get_extension(file.pop('mimeType'))
+        print('created')
         return file
 
     def create_file(self,name,parent_id,source):
@@ -181,6 +165,7 @@ class driveFacade:
                                     media_body=media,
                                     fields='id,name,mimeType').execute()
         file['extension'] = self.get_extension(file.pop('mimeType'))
+        print('created')
         return file
 
     def update_file(self,file_id,metadata = None,source = None):
@@ -195,6 +180,7 @@ class driveFacade:
                                         media_body=media).execute()
         else:
             file = service.files().update(fileId = file_id,body=file_metadata).execute()
+        print("updated")
         return file
 
     def delete_file(self,file_id):
