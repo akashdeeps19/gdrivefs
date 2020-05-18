@@ -37,6 +37,7 @@ class Passthrough(Operations):
         parent_path = self._parent_path(path)
         print("access : ", path)
         self.fm.access_threaded(path,full_path,parent_path)
+        self.fm.sync_threaded(path, full_path, parent_path)
         if not os.access(full_path, mode):
             raise FuseOSError(errno.EACCES)
 
@@ -58,8 +59,10 @@ class Passthrough(Operations):
 
     def readdir(self, path, fh):
         full_path = self._full_path(path)
+        parent_path = self._parent_path(path)
         dirents = ['.', '..']
         print("ls :", path)
+        # self.fm.sync_threaded(path, full_path, parent_path)
         if os.path.isdir(full_path):
             dirents.extend(os.listdir(full_path))
         for r in dirents:

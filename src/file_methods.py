@@ -52,6 +52,41 @@ class fileMethods:
         root_set = set(os.listdir(full_path))
         return root_set - hist_set , hist_set - root_set #(create , delete)
 
+    def sync_helper(self, path, full_path, item):
+        if item:
+            items = self.df.get_all_files(parent=item['id'])
+        else: 
+            items = self.df.get_all_files()
+    
+        diff = set([(item['id'],item['name'],item['extension']) for item in items]) - \
+               set([(item['id'],item['name'],item['extension']) for item in self.history.get(path, [])])
+        diff = [{'id' : item[0],
+                 'name' : item[1],
+                 'extension' : item[2]} for item in list(diff)]
+        d_thread = threading.Thread(target = self.df.downloader,args = (full_path,diff))
+        d_thread.start()
+        diff = set([(item['id'],item['name'],item['extension']) for item in self.history.get(path, [])]) - \
+               set([(item['id'],item['name'],item['extension']) for item in items])
+        diff = [{'id' : item[0],
+                 'name' : item[1],
+                 'extension' : item[2]} for item in list(diff)]
+        for item in list(diff):
+            if item['extension'] == 'folder':
+                os.rmdir(os.path.join(full_path, item['name']))
+            else:
+                os.remove(os.path.join(full_path, item['name']))
+        self.history[path] = items
+    
+    def sync_threaded(self, path, full_path, parent_path):
+        if self.check_hidden(path):
+            return
+
+        item = self.get_item(self.history[parent_path],os.path.basename(path))
+        if (item and item['extension'] == 'folder') or path == '/':
+            s_thread = threading.Thread(target=self.sync_helper,args=(path,full_path,item))
+            s_thread.start()
+
+
     def access_helper(self,path,full_path,item):
         items = self.df.get_all_files(parent=item['id'])
         self.create_meta_files(items,full_path)

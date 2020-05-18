@@ -112,7 +112,7 @@ class driveFacade:
         service = build('drive', 'v3', credentials=self.creds)
         page_token = None
         items = []
-        q = f"'{parent}' in parents"
+        q = f"'{parent}' in parents and trashed = False"
         while True:
             response = service.files().list(q=q,
                                             spaces='drive',
