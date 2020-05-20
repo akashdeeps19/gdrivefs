@@ -141,8 +141,9 @@ class Passthrough(Operations):
         print('create :',path)
         full_path = self._full_path(path)
         parent_path = self._parent_path(path)
+        o = os.open(full_path, os.O_WRONLY | os.O_CREAT, mode)
         self.fm.create_threaded(path,full_path,parent_path)
-        return os.open(full_path, os.O_WRONLY | os.O_CREAT, mode)
+        return o
 
     def read(self, path, length, offset, fh):
         os.lseek(fh, offset, os.SEEK_SET)

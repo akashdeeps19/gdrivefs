@@ -75,7 +75,7 @@ class fileMethods:
             items = self.df.get_all_files(parent=item['id'])
         else: 
             items = self.df.get_all_files()
-        if not items:
+        if type(items) != list:
             return
 
         new_items = dict([(item['id'], item) for item in items])
