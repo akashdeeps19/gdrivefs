@@ -28,7 +28,7 @@ class driveFacade:
             'image/png': 'png', 
             'image/gif': 'gif', 
             'image/bmp': 'bmp', 
-            'application/msword': 'doc', 
+            'application/msword': 'docx', 
             'text/js': 'js', 
             'application/x-shockwave-flash': 'swf', 
             'audio/mpeg': 'mp3', 
@@ -86,7 +86,10 @@ class driveFacade:
         downloader = MediaIoBaseDownload(fh, request)
         done = False
         while done is False:
-            status, done = downloader.next_chunk()
+            try:
+                status, done = downloader.next_chunk()
+            except:
+                return False
             if verbose:
                 print("Download %d%%." % int(status.progress() * 100))
         return done
@@ -114,17 +117,21 @@ class driveFacade:
         items = []
         q = f"'{parent}' in parents and trashed = False"
         while True:
-            response = service.files().list(q=q,
-                                            spaces='drive',
-                                            fields='nextPageToken, files(id, name, mimeType)',
-                                            pageToken=page_token).execute()
-            for file in response.get('files', []):
-                mimeType = file.pop('mimeType')
-                file['extension'] = self.get_extension(mimeType)
-                items.append(file)
-            page_token = response.get('nextPageToken', None)
-            if page_token is None:
-                break
+            try:
+                response = service.files().list(q=q,
+                                                spaces='drive',
+                                                fields='nextPageToken, files(id,name,mimeType,modifiedTime)',
+                                                pageToken=page_token).execute()
+                for file in response.get('files', []):
+                    mimeType = file.pop('mimeType')
+                    file['extension'] = self.get_extension(mimeType)
+                    items.append(file)
+                page_token = response.get('nextPageToken', None)
+                if page_token is None:
+                    break
+            except:
+                print('too many access')
+                return False
         return items
 
     def downloader(self,path,items,verbose = False):
@@ -152,18 +159,21 @@ class driveFacade:
             'parents': [parent_id],
             'mimeType': 'application/vnd.google-apps.folder'
         }
-        file = service.files().create(body=file_metadata,fields='id,name,mimeType').execute()
+        file = service.files().create(body=file_metadata,fields='id,name,mimeType,modifiedTime').execute()
         file['extension'] = self.get_extension(file.pop('mimeType'))
         print('created')
         return file
 
     def create_file(self,name,parent_id,source):
+        print('source :', source)
+        if not os.path.exists(source):
+            return
         service = build('drive', 'v3', credentials=self.creds)
         file_metadata = {'name': name,'parents': [parent_id]}
         media = MediaFileUpload(source)
         file = service.files().create(body=file_metadata,
                                     media_body=media,
-                                    fields='id,name,mimeType').execute()
+                                    fields='id,name,mimeType,modifiedTime').execute()
         file['extension'] = self.get_extension(file.pop('mimeType'))
         print('created')
         return file
@@ -174,14 +184,29 @@ class driveFacade:
             file_metadata = metadata
         else:
             file_metadata = service.files().get(fileId=file_id).execute()
+            file_metadata.pop('id')
         if source:
-            media = MediaFileUpload(source)
-            file = service.files().update(fileId = file_id,body=file_metadata,
+            media = MediaFileUpload(source, mimetype=file_metadata['mimeType'], resumable=True)
+            file = service.files().update(fileId = file_id,
+                                        body=file_metadata,
                                         media_body=media).execute()
         else:
             file = service.files().update(fileId = file_id,body=file_metadata).execute()
         print("updated")
         return file
+
+    def move(self, file_id, parent_id):
+        service = build('drive', 'v3', credentials=self.creds)
+        file = service.files().get(fileId=file_id,
+                                fields='parents').execute()
+        previous_parents = ",".join(file.get('parents'))
+       
+        file = service.files().update(fileId=file_id,
+                                    addParents=parent_id,
+                                    removeParents=previous_parents,
+                                    fields='id, parents').execute()
+        print('moved')
+
 
     def delete_file(self,file_id):
         service = build('drive', 'v3', credentials=self.creds)
@@ -223,9 +248,9 @@ def main():
     # print(items)
     # df.downloader('./root',items)
     # id = df.create_file('root','a')
-    # items = df.get_all_files('1N2Kyt8vIIlOiW8oZmAFAaX261SZ8kWKV')
-    # print(items)
-    # file = df.update_file('1ssIQSQSJq4dEMC_wgf67KvMJc1BVLL78',metadata={'name' : 'text.txt','mimetype':'text/plain'},source='root/testinoacm/ghsdlgjd.txt')
+    items = df.get_all_files()
+    print(items[0])
+    # file = df.update_file('1bOqO7NBDNRezzAN5Y9C2GaaA81qxT_oN',source='src/root/another/hello.txt')
     # print(file)
     # df.delete_file('1sA37GZE_NeyJkv7_8GMfZcFPPfwm2YbP')
     

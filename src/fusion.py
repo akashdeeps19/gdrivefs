@@ -109,6 +109,18 @@ class Passthrough(Operations):
         return os.symlink(name, self._full_path(target))
 
     def rename(self, old, new):
+        print('rename :', old, new)
+        old_vals = {
+            'path' : old,
+            'full_path' : self._full_path(old),
+            'parent_path' : self._parent_path(old)
+        }
+        new_vals = {
+            'path' : new,
+            'full_path' : self._full_path(new),
+            'parent_path' : self._parent_path(new)
+        }
+        self.fm.move_threaded(old_vals, new_vals)
         return os.rename(self._full_path(old), self._full_path(new))
 
     def link(self, target, name):
@@ -121,7 +133,7 @@ class Passthrough(Operations):
     # ============
 
     def open(self, path, flags):
-        # print('open :',path)
+        print('open :',path)
         full_path = self._full_path(path)
         return os.open(full_path, flags)
 
@@ -138,6 +150,9 @@ class Passthrough(Operations):
 
     def write(self, path, buf, offset, fh):
         print('write :',path)
+        full_path = self._full_path(path)
+        parent_path = self._parent_path(path)
+        self.fm.update_threaded(path, full_path, parent_path)
         os.lseek(fh, offset, os.SEEK_SET)
         return os.write(fh, buf)
 
