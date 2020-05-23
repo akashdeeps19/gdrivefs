@@ -63,7 +63,7 @@ class driveFacade:
             # Save the credentials for the next run
             with open('src/token.pickle', 'wb') as token:
                 pickle.dump(self.creds, token)
-
+        print(self.creds)
         self.service = build('drive', 'v3', credentials=self.creds)
 
     def get_files_metadata(self,no_files):
